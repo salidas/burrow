@@ -8,8 +8,8 @@ import lib.constants as constants
 from binaryornot.check import is_binary
 from lib.ignorer import Ignorer
 from lib.reporter import Reporter
-
 from pathlib import Path
+
 
 def print_result(
         match_name,
@@ -24,26 +24,37 @@ def print_result(
         whole_line="",
         finding_type=""
     ):
+    """
+    Pretty prints burrow findings onto the terminal.
+    """
     
     payload = ""
+
+    # Add the type if we have one
     if finding_type != "":
         payload += "[finding] [" + finding_type + "] | "
 
-    payload += match_name + " match | " + str(Path(filepath))
+    # Add the path of the finding
+    payload += match_name + " | " + str(Path(filepath))
+
+    # If we have a specific line, add that on as well
     if not filename_match and not multiline:
         payload += " | line " + str(line)
 
+    # Print the finding surrounded by bars
     print("\n" + "-" * len(payload))
     print(payload)
     print("-" * len(payload))
 
+    # If we have the local output flag set, then also print the exact finding match.
     if is_outputting_locally and whole_line is not "":
         print(whole_line)
         print("-" * len(payload))
 
-    if finding_type == "filecontent" and exact_match and is_outputting_entropy and expression_is_entropic:
+    # If we're calculating the entropy,
+    if finding_type == "filecontent" and is_outputting_entropy and expression_is_entropic:
         # print(exact_match)
-        print("entropy of -> " + exact_match + " <-\n" + str(entropy.calculate(exact_match)))
+        print("entropy of match: " + str(entropy.calculate(exact_match)))
         print("-" * len(payload))
 
 
@@ -61,106 +72,103 @@ def go(
     # Store the path of the target file in a variable
     filename = str(f)
 
-    # Firstly, check that the file as a whole isn't to be ignored.
-    if not ignorer.is_file_ignored(filename):
+    # By this point we have already removed any files or directories to be ignored from our audit list.
+    # This means that at this point, we should only check if a line we're on is to be ignored.
 
-        for expression in constants.ALL_REGEX_CHECKS:
+    for expression in constants.ALL_REGEX_CHECKS:
+        match_name = expression["name"]
+        search_parameters = re.compile(expression["regex"], flags=re.DOTALL|re.IGNORECASE)
 
-            match_name = expression["name"]
-            search_parameters = re.compile(expression["regex"], flags=re.DOTALL|re.IGNORECASE)
+        # Are we dealing with the internal contents of a file?
+        if expression["type"] == "filecontent":
 
-            # Are we dealing with the internal contents of a file?
-            if expression["type"] == "filecontent":
+            try:
+                with open(f) as open_file:
+                    
+                    # Lets look for single-line matches
+                    if expression["multiline"] != True:
 
-                try:
-                    with open(f) as open_file:
-                        
-                        # Lets look for single-line matches
-                        if expression["multiline"] != True:
+                        # For each line of a file..
+                        for line_number, whole_line in enumerate(open_file):
 
-                            # For each line of a file..
-                            for line_number, whole_line in enumerate(open_file):
+                            # Check if there is a .burrowignore entry for the line
+                            if not ignorer.is_line_ignored(filename, line_number+1):
 
-                                # Check if there is a .burrowignore entry for the line
-                                # and therefore we're not ignoring it
-                                if not ignorer.is_line_ignored(filename, line_number+1):
+                                match = re.search(search_parameters, whole_line)
 
-                                    match = re.search(search_parameters, whole_line)
+                                if match:
 
-                                    if match:
+                                    # Save the line as a whole
+                                    whole_line = whole_line.rstrip().lstrip()
 
-                                        # Save the line as a whole
-                                        whole_line = whole_line.rstrip().lstrip()
+                                    # Obtain the specific portion of the line that is "secret"
+                                    # i.e. if AWS_VAR="x", obtain x
+                                    exact_match = match.group("burrow").rstrip().lstrip()
 
-                                        # Obtain the specific portion of the line that is "secret"
-                                        # i.e. if AWS_VAR="x", obtain x
-                                        exact_match = match.group("burrow").rstrip().lstrip()
-
-                                        print_result(
-                                            match_name,
-                                            filename,
-                                            line=line_number+1,
-                                            is_outputting_locally=is_outputting_locally,
-                                            is_outputting_entropy=is_outputting_entropy,
-                                            expression_is_entropic=expression["entropic"],
-                                            whole_line=whole_line,
-                                            exact_match=exact_match,
-                                            finding_type=expression["type"]
-                                        )
-
-                                        snippet = exact_match[:constants.START_TRUNCATION_LENGTH] + "..." + exact_match[-constants.END_TRUNCATION_LENGTH:]
-                                        reporter.add_finding( 
-                                            match=match_name,
-                                            target_file=filename,
-                                            line_number=line_number+1,
-                                            snippet=snippet
-                                        )
-
-                        # Otherwise, read the entire file as a single stream and search for matching expressions.
-                        else:
-
-                            contents = open_file.read()
-
-                            for match in search_parameters.finditer(contents):
-
-                                exact_match = match.group().rstrip()
-                                if exact_match:
                                     print_result(
                                         match_name,
                                         filename,
-                                        multiline=True,
+                                        line=line_number+1,
                                         is_outputting_locally=is_outputting_locally,
                                         is_outputting_entropy=is_outputting_entropy,
+                                        expression_is_entropic=expression["entropic"],
+                                        whole_line=whole_line,
                                         exact_match=exact_match,
                                         finding_type=expression["type"]
                                     )
-                                    snippet = exact_match.split("\n")[0] + exact_match.split("\n")[1]
-                                    reporter.add_finding(
+
+                                    snippet = exact_match[:constants.START_TRUNCATION_LENGTH] + "..." + exact_match[-constants.END_TRUNCATION_LENGTH:]
+                                    reporter.add_finding( 
                                         match=match_name,
                                         target_file=filename,
-                                        line_number="N/A",
+                                        line_number=line_number+1,
                                         snippet=snippet
                                     )
-                except Exception as ex:
-                    # We've just tried to open a directory. Woops.
-                    print(ex)
 
+                    # Otherwise, read the entire file as a single stream and search for matching expressions.
+                    else:
 
-            # Are we dealing with the name of a file?
-            elif expression["type"] == "filename":
+                        contents = open_file.read()
 
-                # We'll use match here because we want to start from the beginning of the filename/path
-                match = re.match(search_parameters, filename)
+                        for match in search_parameters.finditer(contents):
 
-                if match:
-                    print_result(match_name, filename, filename_match=True, finding_type="filename")
-                    snippet = filename
-                    reporter.add_finding(
-                        match=match_name,
-                        target_file=filename,
-                        line_number="N/A",
-                        snippet=snippet
-                    )
+                            exact_match = match.group().rstrip()
+                            if exact_match:
+                                print_result(
+                                    match_name,
+                                    filename,
+                                    multiline=True,
+                                    is_outputting_locally=is_outputting_locally,
+                                    is_outputting_entropy=is_outputting_entropy,
+                                    exact_match=exact_match,
+                                    finding_type=expression["type"]
+                                )
+                                snippet = exact_match.split("\n")[0] + exact_match.split("\n")[1]
+                                reporter.add_finding(
+                                    match=match_name,
+                                    target_file=filename,
+                                    line_number="N/A",
+                                    snippet=snippet
+                                )
+            except Exception as ex:
+                # We've just tried to open a directory. Woops.
+                print(ex)
+
+        # Are we dealing with the name of a file?
+        elif expression["type"] == "filename":
+
+            # We'll use match here because we want to start from the beginning of the filename/path
+            match = re.match(search_parameters, filename)
+
+            if match:
+                print_result(match_name, filename, filename_match=True, finding_type="filename")
+                snippet = filename
+                reporter.add_finding(
+                    match=match_name,
+                    target_file=filename,
+                    line_number="N/A",
+                    snippet=snippet
+                )
 
 
 if __name__ == "__main__":
@@ -217,21 +225,23 @@ if __name__ == "__main__":
     print("outputting entropy calculations (--output-entropy): " + str(is_outputting_entropy).lower())
     print(".burrowignore file present: " + str(ignorer.is_file_loaded()).lower())
 
-    if is_verbose and ignorer.is_file_loaded():
-        print("\n[verbose] ignoring from .burrowignore file:")
-        ignorer.pretty_print_list()
+    # if is_verbose and ignorer.is_file_loaded():
+    print("\n[verbose] ignoring from .burrowignore file:")
+    ignorer.pretty_print_list()
 
     # Obtain all the files in the target directory. Files only, pls.
     target_files = [os.path.join(parent_dir, filename) for parent_dir, child_dirs, filenames in os.walk(target_directory) for filename in filenames]
+
+    target_files = ignorer.remove_ignored_entries(target_files)
 
     if is_verbose:
         print("\n[verbose] targeting:")
         print("\n".join(target_files))
 
-    # # Glob all the files
+    # Audit all the files!
     for target_file in target_files:
         # If we're not dealing with a binary, then it's all gravy; add it to the list.
-        if ".burrowignore" not in str(target_file) and not is_binary(str(target_file)):
+        if not is_binary(str(target_file)):
             go(target_file, reporter, ignorer, is_outputting_locally, is_outputting_entropy)
 
     reporter.output_to_file()

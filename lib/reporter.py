@@ -68,7 +68,7 @@ class Reporter:
             "time": time.strftime("%H:%M", time.localtime()),
             "target_directory": self.target_directory,
             "findings": [],
-            "burrowignore_entries": self.ignorer.get_entries(show_lookup_field=False)
+            "burrowignore_entries": self.ignorer.get(show_lookup_field=False)
         }
 
 
