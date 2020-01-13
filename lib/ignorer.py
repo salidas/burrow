@@ -9,7 +9,7 @@ class Ignorer:
 
     def pretty_print_list(self):
         for entry in self.get():
-            text = entry["filename"]
+            text = "- " + entry["match"]
             if entry["type"] == "line":
                 text += ":" + entry["line"]
             print(text)
@@ -25,36 +25,42 @@ class Ignorer:
         entries involving line reductions 
         """
 
-        # create a new object copy of target_files 
-        tmp_target_list = list.copy(target_files)
+        tmp_target_list = []
 
-        # We're now going to ignore all .burrowignore entries from being scanned
-        for element, entry in enumerate(tmp_target_list):
-            if entry.endswith(".burrowignore"):
-                del tmp_target_list[element]
+        # For each submission...
+        for target_entry in target_files:
 
-        # print("removing files...")
-        for ignore_entry in self.get(): 
+            allow = True
 
-            name = ignore_entry["filename"]
-            ignore_entry_type = ignore_entry["type"]
+            # Is this the .burrowignore file itself?
+            # If so, skip and go to the next file.
+            if target_entry.endswith(".burrowignore"):
+                continue
 
-            for target_entry in tmp_target_list:
+            # Go through each burrowignore entry
+            for ignore_entry in self.get():
 
-                # If we're dealing with a directory
-                if ignore_entry_type == "directory":
+                ignore_match = ignore_entry["match"]
+                ignore_type = ignore_entry["type"]
 
-                    # If a target entry starts with an ignored directory, then it is ignored 
-                    if target_entry.startswith(name):
-                        tmp_target_list.remove(target_entry)
+                # Is this entry for a directory?
+                if ignore_type == "directory":
 
-                # If we're dealing with a file
-                if ignore_entry_type == "file":
+                    # Does the entry start with the ignore entry?
+                    if target_entry.startswith(ignore_match):
+                        allow = False
 
-                    # Check that the entire filepath matches
-                    if target_entry == name:
-                        tmp_target_list.remove(target_entry)
-        
+                # Is this entry for a filename?
+                elif ignore_type == "file":
+
+                    # Does the entry exactly match the ignored filename?
+                    if target_entry == ignore_match:
+                        allow = False
+
+            if allow:
+                # The file has passed our sieve; add it to the list
+                tmp_target_list.append(target_entry)
+
         return tmp_target_list
 
 
@@ -62,10 +68,10 @@ class Ignorer:
         return self.file_loaded
 
 
-    def is_line_ignored(self, filename, line):
+    def is_line_ignored(self, name, line):
         for entry in self.get():
             if entry["type"] is "line":
-                if entry["filename"] == filename:
+                if entry["match"] == name:
                     if entry["line"] == str(line):
                         return True
         return False
@@ -101,7 +107,7 @@ class Ignorer:
 
                         self.entries.append(
                             {
-                                "filename": name,
+                                "match": name,
                                 "type": "line",
                                 "line": line
                             }
@@ -118,7 +124,7 @@ class Ignorer:
 
                             self.entries.append(
                                 {
-                                    "filename": entry_path_relative,
+                                    "match": entry_path_relative,
                                     "type": "directory",
                                     "line": "N/A"
                                 }
@@ -131,7 +137,7 @@ class Ignorer:
 
                             self.entries.append(
                                 {
-                                    "filename": entry_path_relative,
+                                    "match": entry_path_relative,
                                     "type": "file",
                                     "line": "N/A"
                                 }

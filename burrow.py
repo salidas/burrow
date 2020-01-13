@@ -226,7 +226,7 @@ if __name__ == "__main__":
     print(".burrowignore file present: " + str(ignorer.is_file_loaded()).lower())
 
     # if is_verbose and ignorer.is_file_loaded():
-    print("\n[verbose] ignoring from .burrowignore file:")
+    print("\nignoring from .burrowignore file:")
     ignorer.pretty_print_list()
 
     # Obtain all the files in the target directory. Files only, pls.
@@ -236,7 +236,7 @@ if __name__ == "__main__":
 
     if is_verbose:
         print("\n[verbose] targeting:")
-        print("\n".join(target_files))
+        print("\n- ".join(target_files))
 
     # Audit all the files!
     for target_file in target_files:
