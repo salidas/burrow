@@ -60,7 +60,6 @@ def go(
 
     # Store the path of the target file in a variable
     filename = str(f)
-    print(filename)
 
     # Firstly, check that the file as a whole isn't to be ignored.
     if not ignorer.is_file_ignored(filename):
