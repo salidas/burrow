@@ -47,7 +47,7 @@ def print_result(
     print("-" * len(payload))
 
     # If we have the local output flag set, then also print the exact finding match.
-    if is_outputting_locally and whole_line is not "":
+    if is_outputting_locally and whole_line != "":
         print(whole_line)
         print("-" * len(payload))
 

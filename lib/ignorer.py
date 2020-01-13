@@ -70,7 +70,7 @@ class Ignorer:
 
     def is_line_ignored(self, name, line):
         for entry in self.get():
-            if entry["type"] is "line":
+            if entry["type"] == "line":
                 if entry["match"] == name:
                     if entry["line"] == str(line):
                         return True
