@@ -245,4 +245,5 @@ if __name__ == "__main__":
             go(target_file, reporter, ignorer, is_outputting_locally, is_outputting_entropy)
 
     reporter.output_to_file()
+    print()
  
