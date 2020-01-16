@@ -26,7 +26,7 @@ class Reporter:
         # Create a hash to prevent future duplicates
         import hashlib
         prehashed_id = match + ":" + target_file + ":" + str(line_number) + ":" + snippet
-        hashed_id = hashlib.sha3_256(prehashed_id.encode('utf-8')).hexdigest()
+        hashed_id = hashlib.sha256(prehashed_id.encode('utf-8')).hexdigest()
         if self.is_verbose():
             print("[verbose] prehashed_id: " + prehashed_id)
             print("[verbose] hashed_id: " + hashed_id)
