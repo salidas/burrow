@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 # Taken from https://rosettacode.org/wiki/Entropy#Python
 def calculate(phrase):
     import math
@@ -5,5 +7,3 @@ def calculate(phrase):
 
     objects, size = Counter(phrase), float(len(phrase))
     return -sum(count/size * math.log(count/size, 2) for count in objects.values())
-
-

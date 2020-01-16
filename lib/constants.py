@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 BURROW_VERSION = "v0.9.1"
 
 # UNDERLINE_LENGTH = 100
